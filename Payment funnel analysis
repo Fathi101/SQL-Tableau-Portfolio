@@ -1,0 +1,46 @@
+# In this SQL, I am doing a funnel payment analysis to see the futhest point as well as where users are falling off in the payment process.
+
+
+![1](https://github.com/Fathi101/MySQL-portfolio/assets/121823698/15005a76-70a5-42a0-93e6-020ed3aca997)
+
+
+#1. Count the number of subs in each payment funnel stage by incorporating the max status reached and current status per subscription 
+Use the paymentstatuslog and subscriptions table
+
+
+
+with max_status_reached as(
+Select subscriptionid, 
+max(statusid) as Maxstatus
+from paymentstatuslog
+group by
+subscriptionid
+),
+
+paymentfunnelstages AS (
+    SELECT 
+        s.subscriptionid,
+        CASE 
+            WHEN maxstatus = 1 THEN 'PaymentWidgetOpened'
+            WHEN maxstatus = 2 THEN 'PaymentEntered'
+            WHEN maxstatus = 3 AND currentstatus = 0 THEN 'User Error with Payment Submission'
+            WHEN maxstatus = 3 AND currentstatus != 0 THEN 'Payment Submitted'
+            WHEN maxstatus = 4 AND currentstatus = 0 THEN 'Payment Processing Error with Vendor'
+            WHEN maxstatus = 4 AND currentstatus != 0 THEN 'Payment Success'
+            WHEN maxstatus = 5 THEN 'Complete'
+            WHEN maxstatus IS NULL THEN 'User did not start the payment process'
+        END AS paymentfunnelstage
+    FROM 
+        subscriptions s 
+    LEFT JOIN 
+        max_status_reached m 
+        ON s.subscriptionid = m.subscriptionid
+)
+
+SELECT 
+    paymentfunnelstage, 
+    COUNT(subscriptionid) AS subscriptions 
+FROM 
+    paymentfunnelstages 
+GROUP BY 
+    paymentfunnelstage;
